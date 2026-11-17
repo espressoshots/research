@@ -1,0 +1,1971 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JSON Studio — offline JSON explorer</title>
+<meta name="description" content="A single-file, dependency-free JSON explorer: collapsible tree, search, stats and export.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%234f8cff'/%3E%3Cpath d='M24 16h-5a6 6 0 0 0-6 6v20a6 6 0 0 0 6 6h5M40 16h5a6 6 0 0 1 6 6v20a6 6 0 0 1-6 6h-5' stroke='%23fff' stroke-width='6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+
+<style>
+/* ============================ 1. tokens ============================ */
+*, *::before, *::after { box-sizing: border-box; }
+
+:root {
+  --radius: 12px;
+  --radius-sm: 8px;
+  --mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --dur: 140ms;
+
+  --bg: #0d1117;
+  --bg-2: #0a0e14;
+  --panel: #131a23;
+  --panel-2: #18202b;
+  --panel-3: #1e2733;
+  --border: #253040;
+  --border-soft: #1c2532;
+  --text: #e6edf3;
+  --muted: #8b98a9;
+  --muted-2: #6b7889;
+  --accent: #4f8cff;
+  --accent-soft: rgba(79, 140, 255, .14);
+  --accent-line: rgba(79, 140, 255, .45);
+  --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+
+  --t-string: #7ee787;
+  --t-number: #79c0ff;
+  --t-boolean: #ffa657;
+  --t-null: #d2a8ff;
+  --t-key: #a5d6ff;
+  --t-brace: #6b7889;
+
+  --ok: #3fb950;
+  --warn: #d29922;
+  --err: #f85149;
+}
+
+[data-theme="light"] {
+  --bg: #f6f8fb;
+  --bg-2: #eef1f6;
+  --panel: #ffffff;
+  --panel-2: #f7f9fc;
+  --panel-3: #eef2f7;
+  --border: #d8e0ea;
+  --border-soft: #e6ecf3;
+  --text: #1c2532;
+  --muted: #5c6b7f;
+  --muted-2: #7d8b9c;
+  --accent: #2563eb;
+  --accent-soft: rgba(37, 99, 235, .10);
+  --accent-line: rgba(37, 99, 235, .40);
+  --shadow: 0 10px 26px rgba(20, 35, 60, .12);
+
+  --t-string: #0a7d40;
+  --t-number: #0b5fbe;
+  --t-boolean: #b45309;
+  --t-null: #7c3aed;
+  --t-key: #1d4ed8;
+  --t-brace: #8b98a9;
+}
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 14px;
+  color: var(--text);
+  background:
+    radial-gradient(1100px 600px at 85% -10%, var(--accent-soft), transparent 60%),
+    var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--accent); color: #fff; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ============================ 2. shell ============================ */
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 12px;
+  padding: 12px;
+}
+
+.masthead {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.brand { display: flex; align-items: center; gap: 11px; }
+
+.brand-mark {
+  width: 38px; height: 38px;
+  display: grid; place-items: center;
+  border-radius: 11px;
+  background: linear-gradient(145deg, var(--accent), #7c5cff);
+  color: #fff;
+  font: 700 17px/1 var(--mono);
+  letter-spacing: -.5px;
+  box-shadow: 0 6px 16px var(--accent-soft);
+}
+
+.brand-text h1 { margin: 0; font-size: 16px; font-weight: 650; letter-spacing: -.2px; }
+.brand-text p {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+
+.masthead-spacer { flex: 1 1 20px; }
+
+.toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.divider { width: 1px; height: 24px; background: var(--border); }
+
+/* ============================ 3. controls ============================ */
+.btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  font: 500 12.5px/1 var(--sans);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  transition: background var(--dur), border-color var(--dur), transform var(--dur), color var(--dur);
+}
+.btn:hover { background: var(--panel-3); border-color: var(--accent-line); }
+.btn:active { transform: translateY(1px); }
+.btn[disabled] { opacity: .45; cursor: not-allowed; transform: none; }
+.btn-icon { padding: 8px 9px; }
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.btn-primary:hover { background: color-mix(in srgb, var(--accent) 85%, #fff); border-color: var(--accent); }
+.btn.ghost { background: transparent; }
+.btn.sm { padding: 6px 9px; font-size: 12px; }
+
+kbd {
+  font: 600 10px/1 var(--mono);
+  padding: 3px 5px;
+  border-radius: 5px;
+  background: var(--panel-3);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.seg {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.seg button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: 550 12.5px/1 var(--sans);
+  padding: 7px 13px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background var(--dur), color var(--dur);
+}
+.seg button:hover { color: var(--text); }
+.seg button[aria-selected="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+.search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 210px;
+}
+.search svg { position: absolute; left: 10px; color: var(--muted-2); pointer-events: none; }
+.search input {
+  width: 100%;
+  padding: 8px 30px 8px 32px;
+  font: 500 12.5px/1 var(--sans);
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--dur), background var(--dur);
+}
+.search input::placeholder { color: var(--muted-2); }
+.search input:focus { outline: none; border-color: var(--accent-line); background: var(--panel-3); }
+.search .clear {
+  position: absolute; right: 6px;
+  appearance: none; border: 0; background: transparent;
+  color: var(--muted-2); cursor: pointer; padding: 3px;
+  border-radius: 5px; display: grid; place-items: center;
+}
+.search .clear:hover { color: var(--text); background: var(--panel-3); }
+
+/* ============================ 4. stat strip ============================ */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
+  gap: 10px;
+}
+.stat {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+  min-width: 0;
+}
+.stat dt {
+  font: 600 10px/1 var(--sans);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+.stat dd {
+  margin: 6px 0 0;
+  font: 650 15px/1.1 var(--mono);
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stat dd.ok { color: var(--ok); }
+.stat dd.bad { color: var(--err); }
+.stat.wide { grid-column: span 2; min-width: 0; }
+
+.meter { margin-top: 7px; height: 5px; border-radius: 99px; overflow: hidden; display: flex; background: var(--panel-3); }
+.meter i { display: block; height: 100%; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 7px; }
+.legend b { font: 600 11px/1.4 var(--mono); display: inline-flex; align-items: center; gap: 5px; }
+.legend b::before { content: ""; width: 8px; height: 8px; border-radius: 3px; background: currentColor; }
+
+/* ============================ 5. panes ============================ */
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(300px, 38fr) minmax(360px, 62fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.pane-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  border-bottom: 1px solid var(--border-soft);
+  background: color-mix(in srgb, var(--panel-2) 70%, transparent);
+  min-height: 46px;
+}
+.pane-title {
+  font: 600 11px/1 var(--sans);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.pane-head .spacer { flex: 1 1 auto; }
+.pane-body { position: relative; flex: 1 1 auto; min-height: 0; display: flex; }
+
+.editor-wrap { position: relative; flex: 1 1 auto; display: flex; min-height: 0; }
+#editor {
+  flex: 1 1 auto;
+  width: 100%;
+  resize: none;
+  border: 0;
+  padding: 12px 14px;
+  font: 400 12.5px/1.65 var(--mono);
+  tab-size: 2;
+  color: var(--text);
+  background: transparent;
+  caret-color: var(--accent);
+}
+#editor:focus { outline: none; }
+#editor::placeholder { color: var(--muted-2); }
+
+.bottom-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 7px 11px;
+  border-top: 1px solid var(--border-soft);
+  background: color-mix(in srgb, var(--panel-2) 60%, transparent);
+  min-height: 40px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  font: 500 11.5px/1 var(--sans);
+  color: var(--muted);
+  background: var(--panel-3);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  cursor: pointer;
+  transition: color var(--dur), border-color var(--dur), background var(--dur);
+}
+.chip:hover { color: var(--text); border-color: var(--accent-line); }
+.chip.solid { background: transparent; }
+
+/* ============================ 6. tree ============================ */
+.tree {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 8px 6px 14px 8px;
+  font: 400 12.5px/1.5 var(--mono);
+  scrollbar-gutter: stable;
+}
+.tree .row {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 2px 8px 2px 2px;
+  border-radius: 6px;
+  cursor: default;
+  position: relative;
+}
+.tree .row:hover { background: var(--panel-2); }
+.tree .row.is-selected {
+  background: var(--accent-soft);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.tree .toggle {
+  flex: 0 0 16px;
+  width: 16px; height: 17px;
+  display: grid; place-items: center;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 4px;
+}
+.tree .toggle:hover { color: var(--accent); background: var(--panel-3); }
+.tree .toggle:hover .chev { transform: scale(1.2); }
+.tree .row:hover .row-tools { opacity: 1; }
+.tree .row-tools { display: flex; gap: 3px; margin-left: 6px; opacity: 0; transition: opacity var(--dur); }
+.tree .row-tools button {
+  appearance: none; border: 1px solid var(--border);
+  background: var(--panel-3); color: var(--muted);
+  font: 500 10px/1 var(--sans);
+  padding: 3px 6px; border-radius: 5px; cursor: pointer;
+}
+.tree .row-tools button:hover { color: var(--text); border-color: var(--accent-line); }
+.tree .k { color: var(--t-key); }
+.tree .colon { color: var(--t-brace); margin-right: 5px; }
+.tree .sep, .tree .brace, .tree .collapse-hint { color: var(--t-brace); }
+.tree .more { color: var(--muted-2); font-style: italic; }
+.tree .empty-brace { color: var(--t-brace); }
+mark { background: color-mix(in srgb, var(--accent) 45%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
+.tree .row.is-hit { background: color-mix(in srgb, var(--warn) 12%, transparent); }
+
+.chev {
+  display: block;
+  transition: transform var(--dur);
+}
+.chev.open { transform: rotate(90deg); }
+
+/* ============================ 7. output ============================ */
+.out-wrap { flex: 1 1 auto; overflow: auto; min-height: 0; }
+.code {
+  display: flex;
+  align-items: stretch;
+  padding: 10px 0 16px;
+  font: 400 12.5px/1.6 var(--mono);
+  min-width: min-content;
+}
+.gutter {
+  flex: 0 0 auto;
+  padding: 0 10px 0 12px;
+  text-align: right;
+  color: var(--muted-2);
+  background: color-mix(in srgb, var(--panel-2) 55%, transparent);
+  border-right: 1px solid var(--border-soft);
+  user-select: none;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+.gutter i { display: block; font-style: normal; font-variant-numeric: tabular-nums; }
+.code-lines { flex: 1 1 auto; padding: 0 14px; white-space: pre; }
+.code-lines > div { white-space: pre; }
+.j-str { color: var(--t-string); }
+.j-num { color: var(--t-number); }
+.j-bool { color: var(--t-boolean); }
+.j-null { color: var(--t-null); }
+.j-key { color: var(--t-key); }
+.j-punc { color: var(--t-brace); }
+
+/* ============================ 8. empty + status ============================ */
+.empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+}
+.empty .art {
+  width: 54px; height: 54px;
+  display: grid; place-items: center;
+  border-radius: 15px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid var(--accent-line);
+}
+.empty h2 { margin: 4px 0 0; font-size: 14px; color: var(--text); font-weight: 620; }
+.empty p { margin: 0; font-size: 12.5px; max-width: 34ch; line-height: 1.55; }
+.empty .examples { display: flex; gap: 7px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font: 500 11.5px/1 var(--sans);
+  color: var(--muted);
+  min-width: 0;
+}
+.status .frac { font-family: var(--mono); }
+.status .light {
+  width: 7px; height: 7px; border-radius: 99px; background: var(--muted-2);
+  flex: 0 0 auto;
+}
+.status[data-state="ok"] .light { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent); }
+.status[data-state="warn"] .light { background: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 22%, transparent); }
+.status[data-state="err"] .light { background: var(--err); box-shadow: 0 0 0 3px color-mix(in srgb, var(--err) 22%, transparent); }
+.status[data-state="err"] { color: var(--err); }
+
+.pathbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font: 500 11.5px/1 var(--mono);
+  color: var(--muted);
+}
+.pathbar code {
+  display: block;
+  max-width: 46ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 5px 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+}
+
+.flash {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translate(-50%, 14px);
+  padding: 9px 15px;
+  border-radius: 99px;
+  background: var(--panel);
+  border: 1px solid var(--accent-line);
+  box-shadow: var(--shadow);
+  font: 550 12.5px/1 var(--sans);
+  color: var(--text);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur), transform var(--dur);
+  z-index: 50;
+}
+.flash.show { opacity: 1; transform: translate(-50%, 0); }
+
+body.dragging::after {
+  content: "Drop a .json file to load it";
+  position: fixed;
+  inset: 12px;
+  z-index: 60;
+  display: grid;
+  place-content: center;
+  font: 650 16px/1 var(--sans);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  border: 2px dashed var(--accent-line);
+  border-radius: var(--radius);
+  backdrop-filter: blur(2px);
+}
+
+/* ============================ 9. scrollbars + responsive ============================ */
+* { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; border: 3px solid transparent; background-clip: content-box; }
+*::-webkit-scrollbar-thumb:hover { background: var(--muted-2); background-clip: content-box; }
+*::-webkit-scrollbar-corner { background: transparent; }
+
+@media (max-width: 1000px) {
+  .workspace { grid-template-columns: 1fr; grid-template-rows: minmax(220px, 34vh) minmax(280px, 1fr); }
+  .masthead { gap: 10px; }
+  .search { min-width: 150px; flex: 1 1 150px; }
+  .stat.wide { grid-column: span 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 1ms !important; animation-duration: 1ms !important; }
+}
+
+@media print {
+  .masthead, .bottom-bar, .pane-head { display: none; }
+  body { background: #fff; color: #000; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============================ masthead ============================ -->
+  <header class="masthead">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">{ }</div>
+      <div class="brand-text">
+        <h1>JSON Studio</h1>
+        <p>offline &middot; zero dependencies</p>
+      </div>
+    </div>
+
+    <div class="masthead-spacer"></div>
+
+    <div class="search" role="search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.6-3.6"></path>
+      </svg>
+      <input id="search" type="search" placeholder="Search keys &amp; values…  (Ctrl+F)" autocomplete="off" spellcheck="false" aria-label="Search keys and values">
+      <button class="clear" id="search-clear" type="button" title="Clear search" aria-label="Clear search" hidden>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+      </button>
+    </div>
+
+    <div class="toolbar">
+      <button class="btn" id="btn-sample" type="button" title="Load the bundled sample document">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4.5 13H11l-1 9 8.5-11H12l1-9Z"></path></svg>
+        Sample
+      </button>
+      <button class="btn" id="btn-cv" type="button" title="Load the research profile as JSON">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l5 5v13H6zM15 3v5h5M9 13h6M9 17h6"></path></svg>
+        Profile
+      </button>
+      <button class="btn" id="btn-open" type="button" title="Open a .json file">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"></path></svg>
+        Open
+      </button>
+      <input id="file" type="file" accept=".json,.txt,application/json,text/plain" hidden>
+      <button class="btn" id="btn-download" type="button" title="Download the formatted JSON (Ctrl+S)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M4 20h16"></path></svg>
+        Export
+      </button>
+      <span class="divider" aria-hidden="true"></span>
+      <button class="btn btn-icon ghost" id="btn-theme" type="button" title="Toggle light / dark theme" aria-label="Toggle theme"></button>
+      <button class="btn btn-icon ghost" id="btn-clear" type="button" title="Clear the editor" aria-label="Clear editor">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ============================ stats ============================ -->
+  <section class="stats" id="stats" aria-label="Document statistics">
+    <dl class="stat"><dt>Status</dt><dd id="st-state">—</dd></dl>
+    <dl class="stat"><dt>Nodes</dt><dd id="st-nodes">—</dd></dl>
+    <dl class="stat"><dt>Max depth</dt><dd id="st-depth">—</dd></dl>
+    <dl class="stat"><dt>Size</dt><dd id="st-size">—</dd></dl>
+    <dl class="stat"><dt>Types</dt><dd id="st-types">—</dd></dl>
+    <dl class="stat wide">
+      <dt>Composition</dt>
+      <dd id="st-composition">—</dd>
+      <div class="meter" id="st-meter" aria-hidden="true"></div>
+      <div class="legend" id="st-legend"></div>
+    </dl>
+  </section>
+
+  <!-- ============================ workspace ============================ -->
+  <main class="workspace">
+
+    <!-- editor pane -->
+    <section class="pane" aria-label="JSON input">
+      <div class="pane-head">
+        <span class="pane-title">Source</span>
+        <span class="spacer"></span>
+        <span class="status" id="editor-status" data-state="idle">
+          <span class="light" aria-hidden="true"></span>
+          <span class="label">empty</span>
+        </span>
+        <button class="btn sm" id="btn-format" type="button" title="Reformat the source (Ctrl+Enter)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h13"></path></svg>
+          Format
+        </button>
+      </div>
+
+      <div class="pane-body">
+        <div class="editor-wrap">
+          <textarea id="editor" spellcheck="false" autocomplete="off" autocapitalize="off"
+            aria-label="JSON source"
+            placeholder='Paste JSON here, drop a file, or click "Sample"…&#10;&#10;{ "hello": "world" }'></textarea>
+        </div>
+      </div>
+
+      <div class="bottom-bar">
+        <button class="chip" id="btn-minify" type="button" title="Strip all whitespace">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"></path></svg>
+          Minify
+        </button>
+        <button class="chip" id="btn-sort" type="button" title="Sort object keys alphabetically, recursively">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16m0 0-3-3m3 3 3-3M17 20V4m0 0-3 3m3-3 3 3"></path></svg>
+          Sort keys
+        </button>
+        <span class="spacer" style="flex:1 1 auto"></span>
+        <span class="pathbar" id="pathbar" hidden>
+          <span>path</span>
+          <code id="path-value">$</code>
+          <button class="btn sm ghost" id="btn-copy-path" type="button" title="Copy JSONPath">Copy</button>
+        </span>
+      </div>
+    </section>
+
+    <!-- inspector pane -->
+    <section class="pane" aria-label="JSON inspector">
+      <div class="pane-head">
+        <div class="seg" role="tablist" aria-label="Inspector view">
+          <button role="tab" id="tab-tree" aria-selected="true" aria-controls="view-tree" data-view="tree">Tree</button>
+          <button role="tab" id="tab-output" aria-selected="false" aria-controls="view-output" data-view="output">Formatted</button>
+        </div>
+        <span class="spacer"></span>
+        <span class="status" id="search-status" hidden>
+          <span class="light" aria-hidden="true"></span>
+          <span class="label"></span>
+        </span>
+        <button class="btn sm ghost" id="btn-expand" type="button" title="Expand every node">Expand all</button>
+        <button class="btn sm ghost" id="btn-collapse" type="button" title="Collapse to the root">Collapse all</button>
+      </div>
+
+      <div class="pane-body">
+        <div id="view-tree" role="tabpanel" aria-labelledby="tab-tree" style="display:flex;flex:1 1 auto;min-height:0">
+          <div class="tree" id="tree" tabindex="-1"></div>
+        </div>
+        <div id="view-output" role="tabpanel" aria-labelledby="tab-output" style="display:none;flex:1 1 auto;min-height:0">
+          <div class="out-wrap" id="out-wrap">
+            <div class="code" id="code">
+              <div class="gutter" id="gutter"></div>
+              <div class="code-lines" id="code-lines"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="empty" id="empty">
+          <div class="art" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H7a4 4 0 0 0-4 4v10a4 4 0 0 0 4 4h1M16 3h1a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4h-1M9 12h6"></path></svg>
+          </div>
+          <h2>Nothing parsed yet</h2>
+          <p>Type or paste JSON on the left. As soon as it is valid, the tree, stats and formatted output appear here — live.</p>
+          <div class="examples">
+            <button class="chip solid" type="button" data-example="cv">My profile</button>
+            <button class="chip solid" type="button" data-example="sample">Sample document</button>
+            <button class="chip solid" type="button" data-example="snippet">{ "hello": "world" }</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="flash" id="flash" role="status" aria-live="polite"></div>
+
+<script>
+/* ============================================================================
+ * JSON Studio — a single-file JSON explorer.
+ * No dependencies, no network, no build step. Works from file:// as-is.
+ * ==========================================================================*/
+(function () {
+  "use strict";
+
+  /* ------------------------------- elements ------------------------------- */
+  const $ = (id) => document.getElementById(id);
+
+  const els = {
+    editor: $("editor"),
+    tree: $("tree"),
+    empty: $("empty"),
+    gutter: $("gutter"),
+    codeLines: $("code-lines"),
+    search: $("search"),
+    searchClear: $("search-clear"),
+    searchStatus: $("search-status"),
+    editorStatus: $("editor-status"),
+    pathbar: $("pathbar"),
+    pathValue: $("path-value"),
+    flash: $("flash"),
+    fileInput: $("file"),
+    themeBtn: $("btn-theme"),
+    stState: $("st-state"),
+    stNodes: $("st-nodes"),
+    stDepth: $("st-depth"),
+    stSize: $("st-size"),
+    stTypes: $("st-types"),
+    stComposition: $("st-composition"),
+    stMeter: $("st-meter"),
+    stLegend: $("st-legend"),
+    viewTree: $("view-tree"),
+    viewOutput: $("view-output"),
+  };
+
+  /* -------------------------------- state -------------------------------- */
+  const STORE_SRC = "json-studio:source";
+  const STORE_THEME = "json-studio:theme";
+  const STORE_VIEW = "json-studio:view";
+
+  const state = {
+    source: "",
+    parsed: null,        // { value, nodes, meta, raw }
+    valid: false,
+    error: null,
+    collapsed: new Set(), // key paths that are closed
+    query: "",
+    hits: new Set(),      // node indices matching the query
+    subset: new Set(),    // node indices to keep once a query is active
+    firstHit: null,
+    selected: null,       // selected node index
+    view: "tree",
+  };
+
+  /* ------------------------------- constants ----------------------------- */
+  const TYPE_COLOR = {
+    string: "var(--t-string)",
+    number: "var(--t-number)",
+    boolean: "var(--t-boolean)",
+    "null": "var(--t-null)",
+    array: "var(--accent)",
+    object: "#a371f7",
+  };
+  const TYPES = ["string", "number", "boolean", "null", "array", "object"];
+  const DEFAULT_OPEN_DEPTH = 2;
+
+  const FLASH_MS = 1500;
+  let flashTimer = 0;
+
+  /* ============================== utilities ============================== */
+  function copyToClipboard(text, label) {
+    const done = () => flash(label || "Copied");
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done, () => legacyCopy(text, done));
+    } else {
+      legacyCopy(text, done);
+    }
+  }
+
+  function legacyCopy(text, done) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.top = "-1000px";
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand("copy"); } catch (_) { ok = false; }
+    document.body.removeChild(ta);
+    if (ok) done(); else flash("Copy failed — select it manually");
+  }
+
+  function flash(message, ms) {
+    els.flash.textContent = message;
+    els.flash.classList.add("show");
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => els.flash.classList.remove("show"), ms || FLASH_MS);
+  }
+
+  function fmtBytes(n) {
+    if (n < 1024) return n + " B";
+    if (n < 1024 * 1024) return (n / 1024).toFixed(n < 10240 ? 1 : 0) + " KB";
+    return (n / 1048576).toFixed(2) + " MB";
+  }
+
+  function num(n) { return n.toLocaleString("en-US"); }
+
+  function plural(n, word) { return num(n) + " " + word + (n === 1 ? "" : "s"); }
+
+  function isPlainObject(v) {
+    return Object.prototype.toString.call(v) === "[object Object]";
+  }
+
+  function typeName(v) {
+    if (v === null) return "null";
+    if (Array.isArray(v)) return "array";
+    return typeof v;
+  }
+
+  /* ============================== parsing =============================== */
+  /**
+   * Parse the source and pre-compute a flat node table. A flat table keeps the
+   * tree walk allocation-free and lets search/stats run over one array.
+   */
+  function parseSource(text) {
+    const value = JSON.parse(text);
+    // Entry 0 is a wrapper for the document as a whole; the parsed root follows
+    // it with an empty key, since "$" is already the prefix every path carries.
+    // parent -1 marks the wrapper as the terminus of every JSONPath walk.
+    const nodes = [{
+      i: 0, parent: -1, key: "$", keyLower: "$", type: typeName(value), value: value,
+      size: 0, depth: 0, path: "$", hits: false,
+    }];
+    const stats = {
+      count: { string: 0, number: 0, boolean: 0, "null": 0, array: 0, object: 0 },
+      depth: 0,
+      strings: 0,
+    };
+
+    // The wrapper entry at index 0 is the document; the parsed root is its
+    // child, so the walk seeds at 0 and the root itself lands on depth 0. This
+    // is the *tree* depth that drives default collapsing. The figure shown to
+    // the user counts nesting levels and adds 1 for the root (see renderStats).
+    const stack = [{ v: value, parent: 0, key: "", depth: 0, size: 0 }];
+    while (stack.length) {
+      const item = stack.pop();
+      const v = item.v;
+      const t = typeName(v);
+      stats.count[t]++;
+      if (t === "string") stats.strings += v.length;
+      if (item.depth > stats.depth) stats.depth = item.depth;
+
+      if (t === "array" || t === "object") {
+        const entries = t === "array"
+          ? v.map((child, idx) => [String(idx), child])
+          : Object.keys(v).map((k) => [k, v[k]]);
+        const nodeIdx = nodes.length;
+        const node = {
+          i: nodeIdx, parent: item.parent, key: item.key,
+          keyLower: String(item.key).toLowerCase(),
+          type: t, value: v, size: entries.length, depth: item.depth,
+          path: null, hits: false,
+        };
+        nodes.push(node);
+        // Push in reverse so children are visited in document order.
+        for (let j = entries.length - 1; j >= 0; j--) {
+          stack.push({
+            v: entries[j][1], parent: nodeIdx, key: entries[j][0],
+            depth: item.depth + 1, size: 0,
+          });
+        }
+      } else {
+        const nodeIdx = nodes.length;
+        nodes.push({
+          i: nodeIdx, parent: item.parent, key: item.key,
+          keyLower: String(item.key).toLowerCase(),
+          type: t, value: v, size: 0, depth: item.depth,
+          path: null, hits: false,
+        });
+      }
+    }
+
+    // Paths are filled in by attachPaths() once the table is complete.
+    return {
+      value: value,
+      nodes: nodes,
+      meta: stats,
+      formatted: JSON.stringify(value, null, 2),
+      compact: JSON.stringify(value),
+    };
+  }
+
+  // attachPaths() fills every node.path once the table is complete.
+  function attachPaths(parsed) {
+    const nodes = parsed.nodes;
+    for (let k = 0; k < nodes.length; k++) nodes[k].path = nodePath(nodes, k);
+  }
+  /**
+   * JSONPath for a node index. The table always begins with a wrapper entry
+   * (key "$", parent -1) standing for the document, so the walk stops as soon
+   * as it reaches a node whose parent is -1. Container keys can legitimately be
+   * the empty string, so empty segments are dropped rather than emitted as a
+   * dangling "." — otherwise "$." + "" + ".limits" would read "$..limits".
+   */
+  function nodePath(nodes, index) {
+    const parts = [];
+    let cur = index;
+    while (nodes[cur].parent !== -1) {
+      const node = nodes[cur];
+      if (node.key !== "") {
+        parts.push(/^\d+$/.test(node.key) ? "[" + node.key + "]" : "." + node.key);
+      }
+      cur = node.parent;
+    }
+    return "$" + parts.reverse().join("");
+  }
+
+  /* ============================== analysis ============================== */
+  /**
+   * Direct children of a container, in document order.
+   * Children of a container are contiguous in the flat table, so this scans
+   * forward and stops at the first node that is not deeper than the parent.
+   */
+  function childIndices(i) {
+    const nodes = state.parsed.nodes;
+    const out = [];
+    for (let k = i + 1; k < nodes.length; k++) {
+      if (nodes[k].parent === i) out.push(k);
+      else if (nodes[k].depth <= nodes[i].depth) break;
+    }
+    return out;
+  }
+
+  function applySearch(query) {
+    state.hits = new Set();
+    state.subset = new Set();
+    state.firstHit = null;
+
+    const q = query.trim().toLowerCase();
+    if (!q || !state.parsed) return;
+
+    const nodes = state.parsed.nodes;
+    for (let k = 0; k < nodes.length; k++) {
+      const node = nodes[k];
+      const match = node.keyLower.indexOf(q) >= 0 || searchableValue(node).indexOf(q) >= 0;
+      if (!match) continue;
+      state.hits.add(k);
+      if (state.firstHit === null) state.firstHit = k;
+      // keep every ancestor so the hit stays reachable, and every descendant
+      // of a matching container so its context is visible.
+      let cur = k;
+      while (cur >= 0) { state.subset.add(cur); cur = nodes[cur].parent; }
+      for (let d = k + 1; d < nodes.length; d++) {
+        if (nodes[d].depth <= node.depth && nodes[d].parent !== k) break;
+        if (nodes[d].parent === k || nodes[d].depth > node.depth) state.subset.add(d);
+        if (nodes[d].depth <= node.depth) break;
+      }
+    }
+  }
+
+  function searchableValue(node) {
+    switch (node.type) {
+      case "string": return node.value.toLowerCase();
+      case "number":
+      case "boolean": return String(node.value);
+      case "null": return "null";
+      case "array": return "array " + node.size;
+      case "object": return "object " + node.size;
+      default: return "";
+    }
+  }
+
+  function renderStats() {
+    const parsed = state.parsed;
+    if (!parsed) {
+      els.stState.textContent = "empty";
+      els.stState.className = "";
+      els.stNodes.textContent = "—";
+      els.stDepth.textContent = "—";
+      els.stSize.textContent = "—";
+      els.stTypes.textContent = "—";
+      els.stComposition.textContent = "—";
+      els.stMeter.textContent = "";
+      els.stLegend.textContent = "";
+      return;
+    }
+
+    const meta = parsed.meta;
+    const used = TYPES.filter((t) => meta.count[t] > 0);
+    const bytes = new Blob([state.source]).size;
+
+    els.stState.textContent = "valid";
+    els.stState.className = "ok";
+    els.stNodes.textContent = num(parsed.nodes.length);
+    // meta.depth is the deepest tree depth, and the root occupies depth 0, so
+    // that figure already equals the number of nesting levels in the document
+    // (a flat object reports 1). No +1 here — adding one is off by one.
+    els.stDepth.textContent = num(meta.depth);
+    els.stSize.textContent = fmtBytes(bytes);
+    els.stTypes.textContent = num(used.length);
+
+    const leaves = parsed.nodes.length - meta.count.array - meta.count.object;
+    els.stComposition.textContent =
+      plural(meta.count.object, "object") + " · " +
+      plural(meta.count.array, "array") + " · " +
+      plural(leaves, "leaf") + " · " +
+      plural(meta.strings, "char");
+
+    els.stMeter.textContent = "";
+    els.stLegend.textContent = "";
+    const total = Math.max(1, parsed.nodes.length);
+    TYPES.filter((t) => meta.count[t] > 0).forEach((t) => {
+      const share = meta.count[t] / total;
+      const bar = document.createElement("i");
+      bar.style.width = (share * 100).toFixed(2) + "%";
+      bar.style.background = TYPE_COLOR[t];
+      bar.title = t + ": " + num(meta.count[t]);
+      els.stMeter.appendChild(bar);
+
+      const item = document.createElement("b");
+      item.style.color = TYPE_COLOR[t];
+      item.textContent = t + " " + num(meta.count[t]);
+      els.stLegend.appendChild(item);
+    });
+  }
+
+  /* ============================== tree view ============================= */
+  const CHEV = "M9 6l6 6-6 6";
+
+  function chevron(open) {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("width", "11");
+    svg.setAttribute("height", "11");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "3");
+    svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("stroke-linejoin", "round");
+    svg.setAttribute("class", "chev" + (open ? " open" : ""));
+    const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    p.setAttribute("d", CHEV);
+    svg.appendChild(p);
+    return svg;
+  }
+
+  function span(cls, text) {
+    const el = document.createElement("span");
+    if (cls) el.className = cls;
+    if (text !== undefined) el.textContent = text;
+    return el;
+  }
+
+  /** A value's inline text; containers show a preview instead. */
+  function valueSpan(node) {
+    switch (node.type) {
+      case "string": return span("j-str", JSON.stringify(node.value));
+      case "number": return span("j-num", String(node.value));
+      case "boolean": return span("j-bool", String(node.value));
+      case "null": return span("j-null", "null");
+      case "array": return span("j-punc", "[…]");
+      case "object": return span("j-punc", "{…}");
+      default: return span("", String(node.value));
+    }
+  }
+
+  function keySpan(node, isRoot) {
+    if (isRoot) {
+      return span("k", "root");
+    }
+    const el = span("k", highlight(String(node.key), state.query));
+    return el;
+  }
+
+  /** Split text on the query and wrap matches in <mark> (DOM-safe). */
+  function highlight(text, query) {
+    const q = (query || "").trim();
+    if (!q) return document.createTextNode(text);
+    const frag = document.createDocumentFragment();
+    const hay = text.toLowerCase();
+    const needle = q.toLowerCase();
+    let at = 0;
+    for (;;) {
+      const found = hay.indexOf(needle, at);
+      if (found < 0) break;
+      if (found > at) frag.appendChild(document.createTextNode(text.slice(at, found)));
+      const mark = document.createElement("mark");
+      mark.textContent = text.slice(found, found + needle.length);
+      frag.appendChild(mark);
+      at = found + needle.length;
+      if (needle.length === 0) break;
+    }
+    if (at < text.length) frag.appendChild(document.createTextNode(text.slice(at)));
+    return frag;
+  }
+
+  function valueSpanHighlighted(node) {
+    if (node.type === "string") {
+      const el = span("j-str");
+      el.appendChild(highlight(JSON.stringify(node.value), state.query));
+      return el;
+    }
+    return valueSpan(node);
+  }
+
+  function renderTree() {
+    const parsed = state.parsed;
+    els.tree.textContent = "";
+
+    if (!parsed) {
+      els.empty.hidden = false;
+      return;
+    }
+    els.empty.hidden = true;
+
+    const nodes = parsed.nodes;
+    const fragment = document.createDocumentFragment();
+    const filtering = state.query.trim().length > 0;
+
+    const build = (i, depth) => {
+      const node = nodes[i];
+      if (filtering && !state.subset.has(i)) return;
+
+      const row = document.createElement("div");
+      row.className = "row";
+      row.style.paddingLeft = (depth * 15 + 4) + "px";
+      row.dataset.i = String(i);
+      if (i === state.selected) row.classList.add("is-selected");
+      if (state.hits.has(i)) row.classList.add("is-hit");
+
+      const container = node.type === "array" || node.type === "object";
+      const children = container ? childIndices(i) : [];
+      const expanded = !state.collapsed.has(node.path);
+
+      // toggle
+      if (container && children.length) {
+        const toggle = span("toggle");
+        toggle.appendChild(chevron(expanded));
+        toggle.title = expanded ? "Collapse" : "Expand";
+        toggle.setAttribute("role", "button");
+        toggle.setAttribute("aria-label", toggle.title);
+        toggle.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          if (state.collapsed.has(node.path)) state.collapsed.delete(node.path);
+          else state.collapsed.add(node.path);
+          renderTree();
+        });
+        row.appendChild(toggle);
+      } else {
+        row.appendChild(span("toggle"));
+      }
+
+      // key
+      const isRoot = i === 0;
+      row.appendChild(keySpan(node, isRoot));
+      if (!isRoot) row.appendChild(span("colon", ":"));
+
+      // value or summary
+      if (!container) {
+        row.appendChild(valueSpanHighlighted(node));
+      } else {
+        const open = node.type === "array" ? "[" : "{";
+        const close = node.type === "array" ? "]" : "}";
+        row.appendChild(span("brace", open));
+        if (children.length && expanded) {
+          row.appendChild(span("more", String(node.size)));
+          row.appendChild(span("brace", close));
+        } else if (children.length) {
+          row.appendChild(span("collapse-hint", "… " + node.size + (node.type === "array" ? " items " : " keys ")));
+          row.appendChild(span("brace", close));
+        } else {
+          row.appendChild(span("empty-brace", close));
+        }
+        const kind = span("more", " " + node.type + (node.size === 1 ? "" : " · " + node.size));
+        row.appendChild(kind);
+      }
+
+      // per-row tools
+      const tools = span("row-tools");
+      const copyVal = document.createElement("button");
+      copyVal.type = "button";
+      copyVal.textContent = "value";
+      copyVal.title = "Copy this value as JSON";
+      copyVal.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        copyToClipboard(JSON.stringify(node.value), "Value copied");
+      });
+      const copyPath = document.createElement("button");
+      copyPath.type = "button";
+      copyPath.textContent = "path";
+      copyPath.title = "Copy this JSONPath";
+      copyPath.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        copyToClipboard(node.path, "Path copied");
+      });
+      tools.appendChild(copyVal);
+      tools.appendChild(copyPath);
+      row.appendChild(tools);
+
+      row.addEventListener("click", () => select(i));
+
+      fragment.appendChild(row);
+      if (container && expanded) children.forEach((c) => build(c, depth + 1));
+    };
+
+    build(0, 0);
+    els.tree.appendChild(fragment);
+  }
+
+  function select(i) {
+    state.selected = i;
+    const nodes = state.parsed.nodes;
+    const node = nodes[i];
+
+    Array.prototype.forEach.call(els.tree.querySelectorAll(".row.is-selected"), (el) => {
+      el.classList.remove("is-selected");
+    });
+    const row = els.tree.querySelector('.row[data-i="' + i + '"]');
+    if (row) row.classList.add("is-selected");
+
+    els.pathbar.hidden = false;
+    els.pathValue.textContent = node.path;
+    els.pathValue.title = node.path;
+  }
+
+  /* ============================ formatted view ========================== */
+  function renderCode() {
+    const parsed = state.parsed;
+    els.gutter.textContent = "";
+    els.codeLines.textContent = "";
+    if (!parsed) return;
+
+    let text;
+    try {
+      text = JSON.stringify(parsed.value, null, 2);
+    } catch (_) {
+      text = parsed.formatted;
+    }
+    const lines = text.split("\n");
+
+    const gutterFrag = document.createDocumentFragment();
+    const codeFrag = document.createDocumentFragment();
+
+    for (let n = 0; n < lines.length; n++) {
+      const ln = document.createElement("i");
+      ln.textContent = String(n + 1);
+      gutterFrag.appendChild(ln);
+
+      const row = document.createElement("div");
+      appendHighlighted(row, lines[n]);
+      codeFrag.appendChild(row);
+    }
+
+    els.gutter.appendChild(gutterFrag);
+    els.codeLines.appendChild(codeFrag);
+  }
+
+  /**
+   * Tiny JSON syntax highlighter. Operates on one line, producing spans via
+   * textContent only — never innerHTML — so document content is never code.
+   */
+  const LINE_RE = /("(?:\\.|[^"\\])*")\s*:|("(?:\\.|[^"\\])*")|(\b-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b)|(\btrue\b|\bfalse\b)|(\bnull\b)/g;
+
+  function appendHighlighted(target, line) {
+    let last = 0;
+    LINE_RE.lastIndex = 0;
+    let m;
+    while ((m = LINE_RE.exec(line)) !== null) {
+      if (m.index > last) {
+        target.appendChild(span("j-punc", line.slice(last, m.index)));
+      }
+      if (m[1] !== undefined) {
+        target.appendChild(span("j-key", m[1]));
+        target.appendChild(span("j-punc", ":"));
+        last = m.index + m[1].length + (m[0].length - m[1].length);
+      } else if (m[2] !== undefined) {
+        target.appendChild(span("j-str", m[2]));
+        last = m.index + m[0].length;
+      } else if (m[3] !== undefined) {
+        target.appendChild(span("j-num", m[3]));
+        last = m.index + m[0].length;
+      } else if (m[4] !== undefined) {
+        target.appendChild(span("j-bool", m[4]));
+        last = m.index + m[0].length;
+      } else if (m[5] !== undefined) {
+        target.appendChild(span("j-null", m[5]));
+        last = m.index + m[0].length;
+      }
+    }
+    if (last < line.length) target.appendChild(span("j-punc", line.slice(last)));
+  }
+
+  /* ============================ orchestration =========================== */
+  let parseTimer = 0;
+
+  function scheduleParse() {
+    clearTimeout(parseTimer);
+    parseTimer = setTimeout(recompute, 140);
+  }
+
+  function recompute() {
+    const text = els.editor.value;
+    state.source = text;
+
+    if (!text.trim()) {
+      state.parsed = null;
+      state.valid = false;
+      state.error = null;
+      state.hits = new Set();
+      state.subset = new Set();
+      state.selected = null;
+      state.collapsed = new Set();
+      setEditorStatus("idle", "empty");
+      els.pathbar.hidden = true;
+      renderStats();
+      renderTree();
+      renderCode();
+      updateSearchStatus();
+      save();
+      return;
+    }
+
+    let parsed = null;
+    try {
+      parsed = parseSource(text);
+      attachPaths(parsed);
+      state.valid = true;
+      state.error = null;
+
+      const previous = state.parsed ? state.collapsed : null;
+      state.parsed = parsed;
+
+      // On first successful parse (or after an invalid state) collapse below
+      // the default depth; afterwards, preserve what the user expanded.
+      if (!previous) {
+        state.collapsed = new Set();
+        for (let k = 0; k < parsed.nodes.length; k++) {
+          const node = parsed.nodes[k];
+          if ((node.type === "array" || node.type === "object") && node.depth >= DEFAULT_OPEN_DEPTH) {
+            state.collapsed.add(node.path);
+          }
+        }
+        if (state.selected === null) state.selected = 0;
+      }
+    } catch (err) {
+      state.valid = false;
+      state.error = err;
+      state.parsed = null;
+      state.hits = new Set();
+      state.subset = new Set();
+      setEditorStatus("err", "invalid JSON");
+      els.pathbar.hidden = true;
+      renderStats();
+      renderTree();
+      renderCode();
+      updateSearchStatus();
+      showParseError(err);
+      save();
+      return;
+    }
+
+    setEditorStatus("ok", positionLabel());
+    applySearch(state.query);
+    if (state.hits.size > 0) {
+      // Reveal hits: expand ancestors of every match.
+      const nodes = state.parsed.nodes;
+      state.hits.forEach((h) => {
+        let cur = nodes[h].parent;
+        while (cur >= 0) { state.collapsed.delete(nodes[cur].path); cur = nodes[cur].parent; }
+      });
+    }
+    renderStats();
+    renderTree();
+    renderCode();
+    updateSearchStatus();
+    save();
+  }
+
+  function positionLabel() {
+    return plural(state.parsed.nodes.length, "node");
+  }
+
+  function showParseError(err) {
+    const message = String(err && err.message ? err.message : err);
+    setEditorStatus("err", message.length > 78 ? message.slice(0, 78) + "…" : message);
+    els.empty.hidden = false;
+    els.empty.querySelector("h2").textContent = "Invalid JSON";
+    els.empty.querySelector("p").textContent = message;
+  }
+
+  function resetEmptyCopy() {
+    els.empty.querySelector("h2").textContent = "Nothing parsed yet";
+    els.empty.querySelector("p").textContent =
+      "Type or paste JSON on the left. As soon as it is valid, the tree, stats and formatted output appear here — live.";
+  }
+
+  function setEditorStatus(kind, label) {
+    els.editorStatus.dataset.state = kind;
+    els.editorStatus.querySelector(".label").textContent = label;
+    if (kind === "ok") resetEmptyCopy();
+  }
+
+  function updateSearchStatus() {
+    const q = state.query.trim();
+    if (!q) {
+      els.searchStatus.hidden = true;
+      els.searchClear.hidden = true;
+      return;
+    }
+    els.searchClear.hidden = false;
+    els.searchStatus.hidden = false;
+    const hits = state.hits.size;
+    els.searchStatus.dataset.state = hits ? "warn" : "err";
+    els.searchStatus.querySelector(".label").textContent =
+      hits ? plural(hits, "match") + " / " + plural(state.parsed ? state.parsed.nodes.length : 0, "node")
+           : "no matches";
+  }
+
+  /* --------------------------------- view -------------------------------- */
+  function setView(view, persist) {
+    state.view = view === "output" ? "output" : "tree";
+    els.viewTree.style.display = state.view === "tree" ? "flex" : "none";
+    els.viewOutput.style.display = state.view === "output" ? "flex" : "none";
+    $("tab-tree").setAttribute("aria-selected", String(state.view === "tree"));
+    $("tab-output").setAttribute("aria-selected", String(state.view === "output"));
+    if (persist !== false) {
+      try { localStorage.setItem(STORE_VIEW, state.view); } catch (_) {}
+    }
+  }
+
+  function setTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    els.themeBtn.textContent = "";
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("width", "15");
+    svg.setAttribute("height", "15");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "2");
+    svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("stroke-linejoin", "round");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", theme === "dark"
+      ? "M12 3v2m0 14v2M5.6 5.6l1.4 1.4m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"
+      : "M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z");
+    svg.appendChild(path);
+    els.themeBtn.appendChild(svg);
+    try { localStorage.setItem(STORE_THEME, theme); } catch (_) {}
+  }
+
+  /* ------------------------------- persistence ---------------------------- */
+  let saveTimer = 0;
+  function save() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(STORE_SRC, els.editor.value);
+      } catch (_) {
+        /* quota or privacy mode — persistence is a nicety, never a failure */
+      }
+    }, 400);
+  }
+
+  function restore() {
+    try {
+      const theme = localStorage.getItem(STORE_THEME);
+      const prefersLight = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches;
+      setTheme(theme || (prefersLight ? "light" : "dark"));
+      setView(localStorage.getItem(STORE_VIEW) || "tree", false);
+      const src = localStorage.getItem(STORE_SRC);
+      if (src) els.editor.value = src;
+    } catch (_) {
+      setTheme("dark");
+      setView("tree", false);
+    }
+  }
+
+  /* -------------------------------- actions ------------------------------- */
+  function loadSample() {
+    els.editor.value = SAMPLE;
+    recompute();
+    flash("Sample document loaded");
+  }
+
+  /** Load the research profile as readable, stable-key JSON (mirrors index.html). */
+  function loadCv() {
+    els.editor.value = JSON.stringify(cvDocument(), null, 2);
+    recompute();
+    flash("Profile loaded");
+  }
+
+  /**
+   * The CV as an ordered document. An object literal is used rather than an
+   * inline JSON string so the source stays readable; non-ASCII characters are
+   * written as \u escapes so the file survives any re-encoding of the HTML.
+   */
+  function cvDocument() {
+    return {
+      name: "Ashish K. Mazumdar",
+      positions: [
+        {
+          title: "Assistant Professor",
+          institution: "Golaghat Engineering College, Assam"
+        },
+        {
+          title: "Doctoral Researcher, Prime Minister's Research Fellow",
+          institution: "Materials Research Centre, Indian Institute of Science, Bengaluru",
+          advisor: "Prof. P. Rajamalli",
+          period: "Jan 2021 – Present"
+        }
+      ],
+      email: ["ashishkm@iisc.ac.in", "ashishkm.work@gmail.com"],
+      website: "https://sites.google.com/view/ashishmazumdar/home",
+      orcid: "0000-0001-6627-0108",
+      researchFocus: "Molecular design, synthesis and excited-state theory of thermally activated delayed fluorescence (TADF) emitters for organic light-emitting diodes.",
+      research: [
+        {
+          theme: "Symmetric coupling rescues a weak emitter",
+          finding: "Coupling two tCzPyCN units into the dual-core 2tCz2Py2CN narrows the singlet–triplet gap and raises device efficiency.",
+          deltaEST_eV: { before: 0.21, after: 0.08 },
+          EQEmax_percent: { before: 0.94, after: 15.02 },
+          PLQY_percent: { before: 33.4, after: 59.1 },
+          doi: "https://doi.org/10.1039/d5cc05955k"
+        },
+        {
+          theme: "Tuning the acceptor core of cyanopyridines",
+          finding: "Tuning the acceptor core within one cyanopyridine donor–acceptor framework leads to efficient TADF emitters.",
+          doi: "https://doi.org/10.1002/asia.70956"
+        },
+        {
+          theme: "Aggregation as a handle on spin-flipping",
+          finding: "Of BPy-pTC and BPy-p3C, only the bulkier emitter shows aggregation-induced enhanced emission; solid films switch emission under acid and base vapour.",
+          kRISC_aggregate_per_s: 206000,
+          doi: "https://doi.org/10.3762/bjoc.18.122"
+        }
+      ],
+      methods: {
+        synthesisAndCharacterisation: ["Organic synthesis", "NMR (MNova)", "Single-crystal XRD (Bruker APEX)", "Cyclic voltammetry", "DSC", "Photophysics and spectroscopy"],
+        computation: ["DFT / TD-DFT", "SCS-CC2 / SCS-ADC(2)", "Spin–orbit and vibronic coupling", "Marcus-type rate analysis", "Machine learning in materials chemistry"],
+        software: ["ORCA", "Gaussian", "Python", "Origin", "Linux / PBS clusters"],
+        researchCode: [
+          { name: "gxauto", purpose: "Gaussian workflow CLI: input generation, batch execution, geometry extraction, TD-DFT parsing" },
+          { name: "reorg2.py", purpose: "Four-point adiabatic reorganisation-energy pipeline with root-flip safeguards and PBS chaining" },
+          { name: "dushinpy", purpose: "Python reimplementation of DUSHIN for Huang–Rhys factors and Duschinsky matrices from Gaussian .fchk files" }
+        ]
+      },
+      publications: [
+        {
+          title: "Tuning the acceptor core in a cyano pyridine-based framework to realize efficient TADF emitters",
+          authors: ["Ashish K. Mazumdar", "Bhaskar Chelleng", "Svadha Devi", "Gyana Prakash Nanda", "Ganesh Manikandan", "Pachaiyappan Rajamalli"],
+          authorPosition: "first",
+          journal: "Chem. Asian J.",
+          year: 2026,
+          volume: "21",
+          issue: "16",
+          pages: "e70956",
+          doi: "https://doi.org/10.1002/asia.70956"
+        },
+        {
+          title: "Visible-light-responsive supramolecular enzyme mimics for combating antimicrobial resistance",
+          authors: ["Rahul Mahashaya", "Rishab Pandey", "Alisha Kamra", "Ashish Mazumdar", "Subinoy Rana", "P. Rajamalli"],
+          authorPosition: 4,
+          journal: "J. Mater. Chem. B",
+          year: 2026,
+          volume: "14",
+          issue: "4",
+          pages: "1409–1417",
+          doi: "https://doi.org/10.1039/d5tb02325d"
+        },
+        {
+          title: "Realizing high-efficiency TADF from a low-performing cyanopyridine emitter via symmetric coupling",
+          authors: ["Ashish K. Mazumdar", "Bhaskar Chelleng", "Svadha Devi", "Gyana Prakash Nanda", "Ganesh Manikandan", "Pachaiyappan Rajamalli"],
+          authorPosition: "first",
+          journal: "Chem. Commun.",
+          year: 2026,
+          volume: "62",
+          issue: "12",
+          pages: "3885–3888",
+          doi: "https://doi.org/10.1039/d5cc05955k"
+        },
+        {
+          title: "Highly efficient orange phosphorescent organic light-emitting diodes with reduced roll-off using xanthene-conjugated carbazole and acridone as host materials",
+          authors: ["Thamodharan Viswanathan", "Nisha Yadav", "Nandish S H", "Sandhyarani Pal", "Ashish Kumar Mazumdar", "Pachaiyappan Rajamalli"],
+          authorPosition: 5,
+          journal: "Chem. Asian J.",
+          year: 2025,
+          volume: "20",
+          issue: "8",
+          pages: "e202401439",
+          doi: "https://doi.org/10.1002/asia.202401439"
+        },
+        {
+          title: "Thermally activated delayed fluorescence (TADF) emitters: sensing and boosting spin-flipping by aggregation",
+          authors: ["Ashish Kumar Mazumdar", "Gyana Prakash Nanda", "Nisha Yadav", "Upasana Deori", "Upasha Acharyya", "Bahadur Sk", "Pachaiyappan Rajamalli"],
+          authorPosition: "first",
+          journal: "Beilstein J. Org. Chem.",
+          year: 2022,
+          volume: "18",
+          pages: "1177–1187",
+          doi: "https://doi.org/10.3762/bjoc.18.122"
+        }
+      ],
+      patents: [
+        {
+          title: "Deep blue Multiple Resonance (MR) emitter based on Cyano pyridine scaffold with very narrow FWHM for OLED applications",
+          inventors: ["Ashish K. Mazumdar", "Bhaskar Chelleng", "Svadha Devi", "Pachaiyappan Rajamalli"],
+          status: "Under review"
+        }
+      ],
+      manuscriptsInPreparation: [
+        "Deep blue Multiple Resonance (MR) emitter based on Cyano pyridine scaffold with very narrow FWHM for OLED applications",
+        "Deep blue carbonyl based MR-TADF emitter, with enhanced performance through hybrid mechanism",
+        "Role of halogen position in reverse intersystem crossing: vibronic modulation of spin-orbit coupling in a 1-brominated carbazole TADF emitter",
+        "Geometry-Engineered Through-Space Charge Transfer Emitters Achieving High EQE in Sky-Blue OLEDs",
+        "Pyridine-Bridged Molecular Design Unifying Efficient TADF, RTP and Thermochromic Behavior"
+      ],
+      appointmentsAndTraining: [
+        {
+          role: "Visiting Research Fellow",
+          organisation: "Kurt-Schwabe-Institut für Mess- und Sensortechnik Meinsberg e.V., Technische Universität Dresden",
+          supervisor: "Prof. Caroline Murawski",
+          period: "June 2024 – July 2024"
+        },
+        {
+          role: "Junior Research Fellow",
+          organisation: "IIT Guwahati, Department of Chemistry",
+          supervisor: "Prof. G. Krishnamoorthy",
+          period: "July 2019 – December 2020",
+          project: "Investigating the Role of Conical Intersections in ESIPT Processes of Small Organic Molecules"
+        },
+        {
+          role: "UGC Non-Resident Scholar",
+          organisation: "University of Hyderabad, Department of Chemistry",
+          supervisor: "Prof. K. V. Jovan Jose",
+          period: "June 2016 – July 2016",
+          project: "Conformational Effects on the Optical Rotation of Chiral Carbohydrates: A Quantum Chemical Study"
+        },
+        {
+          role: "Summer Research Scholar",
+          organisation: "IIT Guwahati, Department of Chemistry",
+          supervisor: "Prof. S. S. Bag",
+          period: "June 2015 – July 2015",
+          project: "Synthesis of Peptides and their Application in Luminescence and FRET Studies"
+        }
+      ],
+      degrees: [
+        {
+          degree: "Ph.D., Materials Chemistry (in progress)",
+          institution: "Indian Institute of Science, Bengaluru",
+          period: "Jan 2021 – Present"
+        },
+        {
+          degree: "M.Sc. Interdisciplinary Science (Chemistry)",
+          institution: "Indian Institute of Technology Guwahati",
+          period: "Jul 2017 – May 2019"
+        },
+        {
+          degree: "B.Sc. Interdisciplinary Science (Chemistry)",
+          institution: "Tezpur University, Assam",
+          period: "Aug 2013 – Jun 2016"
+        }
+      ],
+      honours: [
+        "Prime Minister's Research Fellowship (PMRF)",
+        "CSIR-NET Junior Research Fellowship 2018 (Rank 81)",
+        "Visiting Research Fellowship 2024, Kurt-Schwabe-Institut and TU Dresden",
+        "UGC-NRC Fellowship, Univ. of Hyderabad",
+        "CM Scholarship, Govt. of Assam"
+      ],
+      teachingAndOutreach: [
+        "Assistant Professor, Golaghat Engineering College",
+        "Visiting faculty, Government First Grade College, Malleswaram & Yelahanka"
+      ],
+      presentations: [
+        {
+          type: "Poster",
+          title: "Realizing high-efficiency TADF from a low-performing cyanopyridine emitter via symmetric coupling",
+          event: "ICSM 2024",
+          place: "TU Dresden, Germany",
+          date: "July 2024"
+        },
+        {
+          type: "Poster",
+          title: "Realizing high-efficiency TADF from a low-performing cyanopyridine emitter via symmetric coupling",
+          event: "FARC 2024",
+          place: "IIT Mandi, India",
+          date: "July 2024"
+        }
+      ],
+      schoolsAndWorkshops: ["Gaussian Winter School", "Workshop on Quantum Computing (IISc Bengaluru)"]
+    };
+  }
+
+  function formatSource() {
+    let value;
+    try {
+      value = JSON.parse(els.editor.value);
+    } catch (err) {
+      showParseError(err);
+      return;
+    }
+    els.editor.value = JSON.stringify(value, null, 2);
+    recompute();
+    flash("Formatted");
+  }
+
+  function minifySource() {
+    let value;
+    try {
+      value = JSON.parse(els.editor.value);
+    } catch (err) {
+      showParseError(err);
+      return;
+    }
+    els.editor.value = JSON.stringify(value);
+    recompute();
+    flash("Minified");
+  }
+
+  function sortKeys() {
+    let value;
+    try {
+      value = JSON.parse(els.editor.value);
+    } catch (err) {
+      showParseError(err);
+      return;
+    }
+    els.editor.value = JSON.stringify(sortDeep(value), null, 2);
+    recompute();
+    flash("Keys sorted");
+  }
+
+  function sortDeep(value) {
+    if (Array.isArray(value)) return value.map(sortDeep);
+    if (isPlainObject(value)) {
+      const out = {};
+      Object.keys(value).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+        .forEach((k) => { out[k] = sortDeep(value[k]); });
+      return out;
+    }
+    return value;
+  }
+
+  function download() {
+    if (!state.valid || !state.parsed) {
+      flash("Nothing to export — the JSON is not valid");
+      return;
+    }
+    const blob = new Blob([state.parsed.formatted + "\n"], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    a.href = url;
+    a.download = "json-studio-" + stamp + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    flash("Exported " + a.download);
+  }
+
+  function openFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      els.editor.value = String(reader.result || "");
+      recompute();
+      flash("Loaded " + file.name + " (" + fmtBytes(file.size) + ")");
+    };
+    reader.onerror = () => flash("Could not read that file");
+    reader.readAsText(file);
+  }
+
+  function expandAll() {
+    if (!state.parsed) return;
+    state.collapsed = new Set();
+    renderTree();
+  }
+
+  function collapseAll() {
+    if (!state.parsed) return;
+    const collapsed = new Set();
+    for (let k = 1; k < state.parsed.nodes.length; k++) {
+      const node = state.parsed.nodes[k];
+      if (node.type === "array" || node.type === "object") collapsed.add(node.path);
+    }
+    state.collapsed = collapsed;
+    renderTree();
+  }
+
+  function clearAll() {
+    els.editor.value = "";
+    state.query = "";
+    els.search.value = "";
+    state.selected = null;
+    state.collapsed = new Set();
+    recompute();
+    els.editor.focus();
+    flash("Cleared");
+  }
+
+  /* -------------------------------- events -------------------------------- */
+  function bind() {
+    els.editor.addEventListener("input", scheduleParse);
+
+    els.editor.addEventListener("keydown", (ev) => {
+      // Tab inserts two spaces instead of leaving the field.
+      if (ev.key === "Tab" && !ev.shiftKey) {
+        ev.preventDefault();
+        const start = els.editor.selectionStart;
+        const end = els.editor.selectionEnd;
+        const value = els.editor.value;
+        els.editor.value = value.slice(0, start) + "  " + value.slice(end);
+        els.editor.selectionStart = els.editor.selectionEnd = start + 2;
+        scheduleParse();
+      }
+    });
+
+    els.search.addEventListener("input", () => {
+      state.query = els.search.value;
+      if (state.parsed) applySearch(state.query);
+      renderTree();
+      updateSearchStatus();
+    });
+
+    els.search.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape") { els.search.value = ""; state.query = ""; renderTree(); updateSearchStatus(); els.search.blur(); }
+      if (ev.key === "Enter" && state.firstHit !== null) {
+        // jump to the first match
+        setView("tree");
+        let cur = state.parsed.nodes[state.firstHit].parent;
+        while (cur >= 0) { state.collapsed.delete(state.parsed.nodes[cur].path); cur = state.parsed.nodes[cur].parent; }
+        renderTree();
+        select(state.firstHit);
+        const row = els.tree.querySelector('.row[data-i="' + state.firstHit + '"]');
+        if (row) row.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+    });
+
+    els.searchClear.addEventListener("click", () => {
+      els.search.value = "";
+      state.query = "";
+      renderTree();
+      updateSearchStatus();
+      els.search.focus();
+    });
+
+    $("btn-sample").addEventListener("click", loadSample);
+    $("btn-cv").addEventListener("click", loadCv);
+    $("btn-open").addEventListener("click", () => els.fileInput.click());
+    $("btn-download").addEventListener("click", download);
+    $("btn-clear").addEventListener("click", clearAll);
+    $("btn-format").addEventListener("click", formatSource);
+    $("btn-minify").addEventListener("click", minifySource);
+    $("btn-sort").addEventListener("click", sortKeys);
+    $("btn-expand").addEventListener("click", expandAll);
+    $("btn-collapse").addEventListener("click", collapseAll);
+    $("btn-copy-path").addEventListener("click", () => {
+      if (state.selected === null || !state.parsed) return;
+      copyToClipboard(state.parsed.nodes[state.selected].path, "Path copied");
+    });
+
+    els.fileInput.addEventListener("change", (ev) => {
+      openFile(ev.target.files && ev.target.files[0]);
+      ev.target.value = "";
+    });
+
+    els.themeBtn.addEventListener("click", () => {
+      const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+      setTheme(next);
+    });
+
+    document.querySelectorAll("[data-view]").forEach((tab) => {
+      tab.addEventListener("click", () => setView(tab.dataset.view));
+    });
+
+    document.querySelectorAll("[data-example]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (btn.dataset.example === "sample") loadSample();
+        else if (btn.dataset.example === "cv") loadCv();
+        else {
+          els.editor.value = '{\n  "hello": "world"\n}';
+          recompute();
+        }
+      });
+    });
+
+    // Keyboard shortcuts
+    window.addEventListener("keydown", (ev) => {
+      const mod = ev.ctrlKey || ev.metaKey;
+      if (!mod) return;
+      const key = ev.key.toLowerCase();
+      if (key === "f") { ev.preventDefault(); els.search.focus(); els.search.select(); }
+      else if (key === "s") { ev.preventDefault(); download(); }
+      else if (key === "enter") { ev.preventDefault(); formatSource(); }
+      else if (key === "k") { ev.preventDefault(); clearAll(); }
+    });
+
+    // Drag & drop a file anywhere
+    let dragDepth = 0;
+    window.addEventListener("dragenter", (ev) => {
+      if (!ev.dataTransfer || Array.prototype.indexOf.call(ev.dataTransfer.types || [], "Files") < 0) return;
+      dragDepth++;
+      document.body.classList.add("dragging");
+    });
+    window.addEventListener("dragover", (ev) => { ev.preventDefault(); });
+    window.addEventListener("dragleave", () => {
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (!dragDepth) document.body.classList.remove("dragging");
+    });
+    window.addEventListener("drop", (ev) => {
+      ev.preventDefault();
+      dragDepth = 0;
+      document.body.classList.remove("dragging");
+      const file = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+      openFile(file);
+    });
+  }
+
+  /* -------------------------------- sample -------------------------------- */
+  const SAMPLE = JSON.stringify({
+    project: "json-studio",
+    version: "1.0.0",
+    offline: true,
+    dependencies: [],
+    metrics: { stars: 1284, forks: 96, openIssues: 7, coverage: 0.94 },
+    tags: ["json", "explorer", "single-file", "offline", "tree-view"],
+    maintainers: [
+      { name: "Ada", role: "core", commits: 412, active: true },
+      { name: "Linus", role: "docs", commits: 87, active: false }
+    ],
+    limits: { maxDepth: 64, maxBytes: 5242880, warnOnNull: null },
+    nested: {
+      deep: {
+        deeper: {
+          note: "collapse me — I live below the default open depth",
+          values: [1, 2, 3, [4, 5, [6, 7]]]
+        }
+      }
+    }
+  }, null, 2);
+
+  /* --------------------------------- boot --------------------------------- */
+  restore();
+  bind();
+  if (!els.editor.value.trim()) els.editor.value = SAMPLE;
+  recompute();
+})();
+</script>
+</body>
+</html>
