@@ -650,6 +650,13 @@ sub, sup { font-size: .72em; line-height: 0; }
 .efig .ef-accent-t { fill: var(--accent); }
 .efig .ef-amber-t { fill: var(--amber); }
 
+.ef-curve { stroke: var(--text); stroke-width: 2; fill: none; stroke-linecap: round; }
+.ef-guide { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 3; fill: none; opacity: .7; }
+.ef-level-a { stroke: var(--accent); }
+.efig .ef-s { font-size: 9px; }
+.theme.theory-wide { grid-column: 1 / -1; }
+@media (min-width: 981px) { .theme.feature.flip .efig { order: -1; } }
+
 .pub .gist { margin-top: 7px; font-size: 14px; line-height: 1.55; color: var(--text-soft); }
 
 .also { margin-top: 34px; gap: 18px 40px; }
@@ -1095,29 +1102,150 @@ sub, sup { font-size: .72em; line-height: 0; }
           </figure>
         </article>
 
-        <article class="card theme">
-          <p class="theme-k">Structure&ndash;property</p>
-          <h3>Tuning the acceptor core of cyanopyridines</h3>
-          <p>
-            How tuning the acceptor core within a single cyanopyridine donor&ndash;acceptor framework
-            leads to efficient TADF emitters: the acceptor, not only the donor, as the design variable.
-          </p>
-          <a class="theme-ref" href="https://doi.org/10.1002/asia.70956" target="_blank" rel="noopener noreferrer">Chem. Asian J. 2026 &middot; first author</a>
+        <article class="card theme feature flip">
+          <div class="feature-text">
+            <p class="theme-k">Structure&ndash;property</p>
+            <h3>Tuning the acceptor core of cyanopyridines</h3>
+            <p>
+              How tuning the acceptor core within a single cyanopyridine donor&ndash;acceptor framework
+              leads to efficient TADF emitters: the acceptor, not only the donor, as the design variable.
+            </p>
+            <p>
+              Adding a second, asymmetric pyridine acceptor (2tCzPyCN &rarr; 2tCz2PyCN) shifts emission from
+              deep blue to sky blue and lowers the S<sub>1</sub>/S<sub>0</sub> reorganisation energy from
+              0.94 to 0.82&nbsp;eV, which suppresses non-radiative decay roughly fifteen-fold.
+            </p>
+            <a class="theme-ref" href="https://doi.org/10.1002/asia.70956" target="_blank" rel="noopener noreferrer">Chem. Asian J. 2026 &middot; first author</a>
+          </div>
+
+          <figure class="efig">
+            <svg viewBox="0 0 450 286" role="img" aria-labelledby="afig-t afig-d">
+              <title id="afig-t">Ground- and excited-state potentials for the single- and dual-acceptor emitters</title>
+              <desc id="afig-d">In 2tCzPyCN the S1 minimum is displaced further from the S0 minimum, giving a reorganisation energy of 0.94 electronvolts and deep-blue emission at 437 nanometres. In 2tCz2PyCN the displacement is smaller, the reorganisation energy is 0.82 electronvolts, and non-radiative decay is about fifteen times lower.</desc>
+              <defs>
+                <marker id="ah2-a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 9 5 1 9" class="ef-head ef-accent"></path></marker>
+                <marker id="ah2-m" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 9 5 1 9" class="ef-head ef-muted"></path></marker>
+                <marker id="ah2-w" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 9 5 1 9" class="ef-head ef-amber"></path></marker>
+              </defs>
+
+              <!-- panel A: one acceptor -->
+              <text x="80" y="18" class="ef-k" text-anchor="middle">One acceptor</text>
+              <text x="80" y="39" class="ef-name" text-anchor="middle">2tCzPyCN</text>
+              <path d="M4 115.9 Q62 284.1 120 115.9" class="ef-curve"></path>
+              <path d="M87.4 65 Q113.4 119 139.4 65" class="ef-curve"></path>
+              <text x="22" y="196" class="ef-lbl" text-anchor="middle">S&#8320;</text>
+              <text x="146" y="72" class="ef-lbl">S&#8321;</text>
+              <line x1="113.4" y1="96" x2="113.4" y2="131" class="ef-arrow ef-muted ef-strong" marker-end="url(#ah2-m)"></line>
+              <path d="M92 98 q6 5 0 10 q-6 5 0 10 q6 5 0 10 l0 7" class="ef-arrow ef-amber ef-strong" marker-end="url(#ah2-w)"></path>
+              <text x="84" y="118" class="ef-note ef-amber-t" text-anchor="end">k<tspan class="ef-s" dy="4">nr</tspan></text>
+              <path d="M113.4 134 H146 M62 200 H146" class="ef-guide"></path>
+              <path d="M146 134 h8 M150 134 v66 M146 200 h8" class="ef-brace"></path>
+              <text x="159" y="161" class="ef-lbl">&#955;</text>
+              <text x="159" y="179" class="ef-gap">0.94 eV</text>
+
+              <!-- panel B: two acceptors -->
+              <text x="312" y="18" class="ef-k ef-accent-t" text-anchor="middle">Two acceptors</text>
+              <text x="312" y="39" class="ef-name" text-anchor="middle">2tCz2PyCN</text>
+              <path d="M236 115.9 Q294 284.1 352 115.9" class="ef-curve"></path>
+              <path d="M315.7 65 Q341.7 119 367.7 65" class="ef-curve"></path>
+              <text x="254" y="196" class="ef-lbl" text-anchor="middle">S&#8320;</text>
+              <text x="374" y="72" class="ef-lbl">S&#8321;</text>
+              <line x1="341.7" y1="96" x2="341.7" y2="140" class="ef-arrow ef-accent ef-strong" marker-end="url(#ah2-a)"></line>
+              <path d="M322 98 q6 5 0 10 q-6 5 0 10 q6 5 0 10 l0 7" class="ef-arrow ef-muted ef-dash ef-faint" marker-end="url(#ah2-m)"></path>
+              <text x="314" y="118" class="ef-note" text-anchor="end">k<tspan class="ef-s" dy="4">nr</tspan></text>
+              <path d="M341.7 143 H378 M294 200 H378" class="ef-guide"></path>
+              <path d="M378 143 h8 M382 143 v57 M378 200 h8" class="ef-brace"></path>
+              <text x="391" y="166" class="ef-lbl ef-accent-t">&#955;</text>
+              <text x="391" y="184" class="ef-gap ef-accent-t">0.82 eV</text>
+
+              <!-- outcomes -->
+              <line x1="14" y1="222" x2="436" y2="222" class="ef-rule"></line>
+              <text x="80" y="253" class="ef-big" text-anchor="middle">437 nm</text>
+              <text x="80" y="275" class="ef-sub" text-anchor="middle">deep blue &#183; k<tspan class="ef-s" dy="4">nr</tspan><tspan dy="-4"> high</tspan></text>
+              <text x="312" y="253" class="ef-big ef-accent-t" text-anchor="middle">&#8776;15&#215;</text>
+              <text x="312" y="275" class="ef-sub" text-anchor="middle">lower k<tspan class="ef-s" dy="4">nr</tspan><tspan dy="-4"> &#183; sky blue</tspan></text>
+            </svg>
+            <figcaption>Schematic potentials. Displacement drawn to the computed S&#8321;/S&#8320; reorganisation energies; values from the Chem. Asian J. paper.</figcaption>
+          </figure>
         </article>
 
-        <article class="card theme">
-          <p class="theme-k">Solid state</p>
-          <h3>Aggregation as a handle on spin-flipping</h3>
-          <p>
-            In two benzoylpyridine emitters that differ in donor size (BPy-<i>p</i>TC and BPy-<i>p</i>3C),
-            only the bulkier one shows aggregation-induced enhanced emission, and its aggregates reach
-            <span class="sym">k<sub>RISC</sub></span> of 2.06&nbsp;&times;&nbsp;10<sup>5</sup>&nbsp;s<sup>&minus;1</sup>.
-            Solid films also switch their emission reversibly under acid and base vapour.
-          </p>
-          <a class="theme-ref" href="https://doi.org/10.3762/bjoc.18.122" target="_blank" rel="noopener noreferrer">Beilstein J. Org. Chem. 2022 &middot; first author</a>
+        <article class="card theme feature">
+          <div class="feature-text">
+            <p class="theme-k">Solid state</p>
+            <h3>Aggregation as a handle on spin-flipping</h3>
+            <p>
+              In two benzoylpyridine emitters that differ in donor size (BPy-<i>p</i>TC and BPy-<i>p</i>3C),
+              only the bulkier one shows aggregation-induced enhanced emission, and its aggregates reach
+              <span class="sym">k<sub>RISC</sub></span> of 2.06&nbsp;&times;&nbsp;10<sup>5</sup>&nbsp;s<sup>&minus;1</sup>.
+              Solid films also switch their emission reversibly under acid and base vapour.
+            </p>
+            <p>
+              Aggregation narrows <span class="sym">&Delta;E<sub>ST</sub></span> in both, but in BPy-<i>p</i>3C it
+              inverts the gap, placing T<sub>1</sub> 0.047&nbsp;eV above S<sub>1</sub>.
+            </p>
+            <a class="theme-ref" href="https://doi.org/10.3762/bjoc.18.122" target="_blank" rel="noopener noreferrer">Beilstein J. Org. Chem. 2022 &middot; first author</a>
+          </div>
+
+          <figure class="efig">
+            <svg viewBox="0 0 450 286" role="img" aria-labelledby="bfig-t bfig-d">
+              <title id="bfig-t">Singlet and triplet levels in solution and in aggregates for two benzoylpyridine emitters</title>
+              <desc id="bfig-d">For BPy-pTC the singlet–triplet gap narrows from 0.121 electronvolts in toluene to 0.06 in aggregates, and aggregate kRISC is 0.74 times ten to the five per second. For BPy-p3C the gap goes from 0.047 electronvolts in toluene to minus 0.047 in aggregates, with the triplet above the singlet, and aggregate kRISC is 2.06 times ten to the five per second.</desc>
+              <defs>
+                <marker id="ah3-a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1 9 5 1 9" class="ef-head ef-accent"></path></marker>
+                <marker id="ah3-m" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1 9 5 1 9" class="ef-head ef-muted"></path></marker>
+              </defs>
+
+              <!-- panel A: BPy-pTC -->
+              <text x="102" y="18" class="ef-k" text-anchor="middle">Smaller donor</text>
+              <text x="102" y="39" class="ef-name" text-anchor="middle">BPy-<tspan font-style="italic">p</tspan>TC</text>
+              <text x="55" y="70" class="ef-sub" text-anchor="middle">toluene</text>
+              <text x="150" y="70" class="ef-sub" text-anchor="middle">aggregate</text>
+              <line x1="30" y1="100" x2="80" y2="100" class="ef-level"></line>
+              <line x1="30" y1="148.4" x2="80" y2="148.4" class="ef-level"></line>
+              <text x="24" y="105" class="ef-lbl" text-anchor="end">S&#8321;</text>
+              <text x="24" y="153" class="ef-lbl" text-anchor="end">T&#8321;</text>
+              <line x1="55" y1="144" x2="55" y2="106" class="ef-arrow ef-muted ef-dash" marker-end="url(#ah3-m)"></line>
+              <text x="102" y="128" class="ef-note" text-anchor="middle">&#8594;</text>
+              <line x1="125" y1="100" x2="175" y2="100" class="ef-level"></line>
+              <line x1="125" y1="124" x2="175" y2="124" class="ef-level"></line>
+              <text x="181" y="105" class="ef-lbl">S&#8321;</text>
+              <text x="181" y="129" class="ef-lbl">T&#8321;</text>
+              <line x1="150" y1="120" x2="150" y2="106" class="ef-arrow ef-muted" marker-end="url(#ah3-m)"></line>
+              <text x="55" y="186" class="ef-gap" text-anchor="middle">0.121 eV</text>
+              <text x="150" y="186" class="ef-gap" text-anchor="middle">0.06 eV</text>
+
+              <!-- panel B: BPy-p3C -->
+              <text x="334" y="18" class="ef-k ef-accent-t" text-anchor="middle">Bulkier donor &#183; AIEE</text>
+              <text x="334" y="39" class="ef-name" text-anchor="middle">BPy-<tspan font-style="italic">p</tspan>3C</text>
+              <text x="287" y="70" class="ef-sub" text-anchor="middle">toluene</text>
+              <text x="382" y="70" class="ef-sub" text-anchor="middle">aggregate</text>
+              <line x1="262" y1="100" x2="312" y2="100" class="ef-level"></line>
+              <line x1="262" y1="118.8" x2="312" y2="118.8" class="ef-level"></line>
+              <text x="256" y="105" class="ef-lbl" text-anchor="end">S&#8321;</text>
+              <text x="256" y="124" class="ef-lbl" text-anchor="end">T&#8321;</text>
+              <line x1="287" y1="115" x2="287" y2="105" class="ef-arrow ef-muted ef-dash" marker-end="url(#ah3-m)"></line>
+              <text x="334" y="113" class="ef-note" text-anchor="middle">&#8594;</text>
+              <line x1="357" y1="81.2" x2="407" y2="81.2" class="ef-level ef-level-a"></line>
+              <line x1="357" y1="100" x2="407" y2="100" class="ef-level"></line>
+              <text x="413" y="86" class="ef-lbl ef-accent-t">T&#8321;</text>
+              <text x="413" y="105" class="ef-lbl">S&#8321;</text>
+              <line x1="382" y1="85" x2="382" y2="95" class="ef-arrow ef-accent ef-strong" marker-end="url(#ah3-a)"></line>
+              <text x="382" y="140" class="ef-note ef-accent-t" text-anchor="middle">inverted</text>
+              <text x="287" y="186" class="ef-gap" text-anchor="middle">0.047 eV</text>
+              <text x="382" y="186" class="ef-gap ef-accent-t" text-anchor="middle">&#8722;0.047 eV</text>
+
+              <!-- outcomes -->
+              <line x1="14" y1="222" x2="436" y2="222" class="ef-rule"></line>
+              <text x="102" y="253" class="ef-big" text-anchor="middle">0.74</text>
+              <text x="102" y="275" class="ef-sub" text-anchor="middle">aggregate k<tspan class="ef-s" dy="4">RISC</tspan><tspan dy="-4"> &#183; &#215;10&#8309; s&#8315;&#185;</tspan></text>
+              <text x="334" y="253" class="ef-big ef-accent-t" text-anchor="middle">2.06</text>
+              <text x="334" y="275" class="ef-sub" text-anchor="middle">aggregate k<tspan class="ef-s" dy="4">RISC</tspan><tspan dy="-4"> &#183; &#215;10&#8309; s&#8315;&#185;</tspan></text>
+            </svg>
+            <figcaption>Gaps drawn to scale from fluorescence (RT) and phosphorescence (77 K) onsets; aggregates in 90&nbsp;% water/THF. Values from the Beilstein J. Org. Chem. paper.</figcaption>
+          </figure>
         </article>
 
-        <article class="card theme">
+        <article class="card theme theory-wide">
           <p class="theme-k">Theory</p>
           <h3>Excited-state calculations alongside the bench</h3>
           <p>
